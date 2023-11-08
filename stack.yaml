@@ -63,10 +63,9 @@ Resources:
 
 Outputs:
   Ipserver:
-    Description: Information about the value
-    Value: Value to return
-    Export:
-      Name: Name of resource to export
+    Description: "la ip del server"
+    Value: !GetAtt Ec2Vpn.PublicIp
 
 
 #scp -i vpn.pem ec2-user@52.195.152.243:/home/wireguard/config/peer1/peer1.conf .
+
