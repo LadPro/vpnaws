@@ -1,5 +1,4 @@
 import boto3
-import json
 
 regiones = {"india":"ap-south-1",
 "suecia":"eu-north-1",
@@ -61,7 +60,7 @@ if vpn_sg_id is None:
         StackName=response['StackId'],
     )
     stack_descripcion = cloudformation.describe_stacks(StackName=response['StackId'])
-    print (stack_descripcion)
+    print (stack_descripcion["Stacks"][0]['Outputs'][0]['OutputValue'])
 else:
     vpn_sg_id = vpn_sg_id['GroupId']
     print(vpn_sg_id)
