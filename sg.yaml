@@ -30,7 +30,7 @@ Resources:
   
   
 
-# Outputs:
-#   sg_id:
-#     Description: "id del security group"
-#     Value: !Ref SgVpn
+Outputs:
+  SgVpn:
+    Description: "id del security group"
+    Value: !Ref SgVpn
