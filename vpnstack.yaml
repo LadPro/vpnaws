@@ -5,15 +5,21 @@ Parameters:
   SgId: 
     Type: String
     Default: "id del security group"
+  TypeIns: 
+    Type: String
+    Default: "typo de isntancia"
+  AmiId: 
+    Type: String
+    Default: "id del ami"
 
 Resources: 
   Ec2Vpn:
     Type: "AWS::EC2::Instance"
     Properties:
       KeyName: vpn
-      ImageId: ami-05c13eab67c5d8861
-      InstanceType: t2.micro
-      SecurityGroupIds: ["sg-036e8acd96d42f13a"]
+      ImageId: !Ref AmiId
+      InstanceType: !Ref  TypeIns
+      SecurityGroupIds: !Ref SgId
       UserData:   
         Fn::Base64: |
           #!/bin/bash -ex

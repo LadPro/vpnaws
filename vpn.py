@@ -160,6 +160,16 @@ if stack_vpn == None:
                 'ParameterValue': vpn_sg_id,
                 
             },
+            {
+                'ParameterKey': "AmiId",
+                'ParameterValue': ultima_ami['ImageId'],
+                
+            },
+            {
+                'ParameterKey': "TypeIns",
+                'ParameterValue': typei,
+                
+            },
         ],
         TimeoutInMinutes=123,
         OnFailure='ROLLBACK',
