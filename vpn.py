@@ -1,18 +1,18 @@
 import boto3
 
-regiones = {"india":"ap-south-1",
-"suecia":"eu-north-1",
-"francia":"eu-west-3",
-"inglaterra":"eu-west-2",
-"irlanda":"eu-west-1",
-"corea":"ap-northeast-2",
-"japon":"ap-northeast-1",
-"canada":"ca-central-1",
-"brasil":"sa-east-1",
-"singapur":"ap-southeast-1",
-"australia":"ap-southeast-2",
-"alemania":"eu-central-1",
-"us":"us-east-1"}
+regiones = {"india":["ap-south-1","ami-02e94b011299ef128"],
+"suecia":["eu-north-1",""],
+"francia":["eu-west-3",""],
+"inglaterra":["eu-west-2",""],
+"irlanda":["eu-west-1",""],
+"corea":["ap-northeast-2",""],
+"japon":["ap-northeast-1",""],
+"canada":["ca-central-1",""],
+"brasil":["sa-east-1",""],
+"singapur":["ap-southeast-1",""],
+"australia":["ap-southeast-2",""],
+"alemania":["eu-central-1",""],
+"us":["us-east-1",""]}
 
 ##Varibles
 actual = "suecia"
@@ -139,9 +139,9 @@ amis = ec2.describe_images(
 ###########lanzar stack de ec2
 
 #buscar ami id (/) prefiero buscarlo a mano y ponerlo en el dict
-# amis['Images'].sort(key=lambda x: x['CreationDate'], reverse=True)
-# ultima_ami = amis['Images'][0] if amis['Images'] else None
-# print (ultima_ami['ImageId'])
+amis['Images'].sort(key=lambda x: x['CreationDate'], reverse=True)
+ultima_ami = amis['Images'][0] if amis['Images'] else None
+print (ultima_ami['ImageId'])
 
 #buscar si stack esta creado
 stack_descripcion = cloudformation.describe_stacks()
