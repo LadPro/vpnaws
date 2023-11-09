@@ -42,6 +42,46 @@ vpn_stack_path = "vpnstack.yaml"
 with open (vpn_stack_path, "r") as vpn_stack_file:
     vpn_stack_body = vpn_stack_file.read()
 
+##buscar tipo de instancia
+ins_type = ""
+typei = []
+try:
+    ins_type = ec2.describe_instance_types(
+        InstanceTypes=['t3.micro'],
+        Filters=[
+        {
+            'Name': 'free-tier-eligible',
+            'Values': ['true']
+            }
+        ]
+        )
+    # print(ins_type['InstanceTypes'])
+    if ins_type['InstanceTypes'] != []:
+        typei.append(ins_type['InstanceTypes'])
+except Exception as e:
+    print (e)
+    
+try:
+    ins_type = ec2.describe_instance_types(
+        InstanceTypes=['t2.micro'],
+        Filters=[
+        {
+            'Name': 'free-tier-eligible',
+            'Values': ['true']
+            }
+        ]
+        )
+    # print(ins_type['InstanceTypes'])
+    if ins_type['InstanceTypes'] != []:
+        typei.append(ins_type['InstanceTypes'])
+except Exception as e:
+    print (e)
+    
+if typei[0] != []:
+    typei = typei[0][0]['InstanceType']
+else:
+    print ("ni t2 ni t3 micro son freetier para esta cuenta")
+
 ##buscar sg id
 vpcs = ec2.describe_vpcs(Filters=[{'Name': 'isDefault', 'Values': ['true']}])
 default_vpc_id = vpcs["Vpcs"][0]["VpcId"]
@@ -95,63 +135,61 @@ amis = ec2.describe_images(
     # Ordenar por fecha de creación de manera descendente y obtener la más reciente
     Owners=['amazon']
 )
+
+###########lanzar stack de ec2
+
+#buscar ami id (/) prefiero buscarlo a mano y ponerlo en el dict
 # amis['Images'].sort(key=lambda x: x['CreationDate'], reverse=True)
 # ultima_ami = amis['Images'][0] if amis['Images'] else None
 # print (ultima_ami['ImageId'])
+
+#buscar si stack esta creado
 stack_descripcion = cloudformation.describe_stacks()
 stack_vpn = next((st for st in stack_descripcion['Stacks'] if st['StackName'] == "ec2vpn"), None)
-print(stack_vpn)
-response = cloudformation.create_stack(
-    StackName='ec2vpn',
-    TemplateBody=vpn_stack_body,
-    Parameters=[
-        {
-            'ParameterKey': "SgId",
-            'ParameterValue': vpn_sg_id,
-            
-        },
-    ],
-    # DisableRollback=False,
-    TimeoutInMinutes=123,
-    OnFailure='ROLLBACK',
-)
+# print(stack_vpn)
+
+#condicional si no esta creado 
 if stack_vpn == None:
     print ("creando ec2vpn")
-    # response = cloudformation.create_stack(
-    #     StackName='ec2vpn',
-    #     TemplateBody=vpn_stack_body,
-    #     Parameters=[
-    #         {
-    #             'ParameterKey': "SgId",
-    #             'ParameterValue': vpn_sg_id,
-                
-    #         },
-    #     ],
-    #     # DisableRollback=False,
-    #     TimeoutInMinutes=123,
-    #     OnFailure='ROLLBACK',
-    # )
-else:
-    response = cloudformation.delete_stack(
-    )
-    if stack_vpn == None:
-        print ("creando ec2vpn")
-        response = cloudformation.create_stack(
-            StackName='ec2vpn',
-            TemplateBody=vpn_stack_body,
-            Parameters=[
-                {
-                    'ParameterKey': "SgId",
-                    'ParameterValue': vpn_sg_id,
-                    
-                },
-            ],
-            # DisableRollback=False,
-            TimeoutInMinutes=123,
-            OnFailure='ROLLBACK',
-        )
+    response = cloudformation.create_stack(
         StackName='ec2vpn',
+        TemplateBody=vpn_stack_body,
+        Parameters=[
+            {
+                'ParameterKey': "SgId",
+                'ParameterValue': vpn_sg_id,
+                
+            },
+        ],
+        TimeoutInMinutes=123,
+        OnFailure='ROLLBACK',
+    )
+else:
+    #eliminado stack
+    eliminar = cloudformation.delete_stack(
+        StackName='ec2vpn',
+    )
+    waiter_delete = cloudformation.get_waiter('stack_create_complete')
+    waiter_delete.wait(
+        StackName='ec2vpn',
+    )
+    #creando stack
+    response = cloudformation.create_stack(
+        StackName='ec2vpn',
+        TemplateBody=vpn_stack_body,
+        Parameters=[
+            {
+                'ParameterKey': "SgId",
+                'ParameterValue': vpn_sg_id,
+                
+            },
+        ],
+        TimeoutInMinutes=123,
+        OnFailure='ROLLBACK',
+    )
         
         
         
 #scp -i vpn.pem ec2-user@52.195.152.243:/home/wireguard/config/peer1/peer1.conf .
+
+
