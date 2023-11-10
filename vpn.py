@@ -1,4 +1,6 @@
 import boto3
+import subprocess
+
 
 regiones = {"india":"ap-south-1",
 "suecia":"eu-north-1",
@@ -65,7 +67,7 @@ for a in instancetype:
         print (e)
     
 
-print (typei)
+# print (typei)
     
 if typei[0] != []:
     typei = typei[0][0]['InstanceType']
@@ -165,6 +167,9 @@ if stack_vpn == None:
         TimeoutInMinutes=123,
         OnFailure='ROLLBACK',
     )
+    waiter.wait(
+        StackName=response['StackId'],
+    )
 else:
     #eliminado stack
     eliminar = cloudformation.delete_stack(
@@ -200,9 +205,28 @@ else:
         TimeoutInMinutes=123,
         OnFailure='ROLLBACK',
     )
+    waiter.wait(
+        StackName=response['StackId'],
+    )    
         
-        
-        
+stack_descripcion = cloudformation.describe_stacks(StackName="ec2vpn")
+ip = stack_descripcion["Stacks"][0]['Outputs'][0]['OutputValue']
+print (ip)        
 #scp -i vpn.pem ec2-user@52.195.152.243:/home/wireguard/config/peer1/peer1.conf .
 
 
+
+# Parámetros del comando scp
+private_key = 'vpn.pem'
+source_path = f'ec2-user@{ip}:/home/wireguard/config/peer1/peer1.conf'
+destination_path = '.'
+
+# Construir el comando scp
+scp_command = ['scp', '-i',  private_key, '-o', 'StrictHostKeyChecking=no', source_path, destination_path]
+
+# Ejecutar el comando
+try:
+    subprocess.run(scp_command, check=True)
+    print("Transferencia exitosa")
+except subprocess.CalledProcessError as e:
+    print(f"Error en la transferencia: {e}")
