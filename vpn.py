@@ -37,14 +37,14 @@ ami_id = ""
 private_key = 'vpn.pem'   ### direccion de la private key
 
 ###guardar templates en variables
-def templates (sg_stack_path, vpn_stack_path):
-    global sg_stack_body, vpn_stack_body
-    #template sg
-    with open (sg_stack_path, "r") as sg_stack_file:
-        sg_stack_body = sg_stack_file.read()
-    #template ec2
-    with open (vpn_stack_path, "r") as vpn_stack_file:
-        vpn_stack_body = vpn_stack_file.read()
+# def templates (sg_stack_path, vpn_stack_path):
+#     global sg_stack_body, vpn_stack_body
+#template sg
+with open (sg_stack_path, "r") as sg_stack_file:
+    sg_stack_body = sg_stack_file.read()
+#template ec2
+with open (vpn_stack_path, "r") as vpn_stack_file:
+    vpn_stack_body = vpn_stack_file.read()
 
 
 ##crear key par
@@ -77,12 +77,10 @@ def buscar_tipo_instacia ():
     else:
         print (f'los tipos de instancias seleccionado no son freetier para esta cuenta :{instancetype}')
 
-tipo = buscar_tipo_instacia()
-print (tipo)
 ###############################################security group
 ##buscar sg id
 def buscar_sgid ():
-    global vpn_sg_id
+    #global vpn_sg_id
     vpcs = ec2.describe_vpcs(Filters=[{'Name': 'isDefault', 'Values': ['true']}]) #obtener id vpc default
     default_vpc_id = vpcs["Vpcs"][0]["VpcId"]                                     #obtener id vpc default
     sgs = ec2.describe_security_groups(Filters=[{'Name': 'vpc-id', 'Values': [default_vpc_id]}])
@@ -101,17 +99,17 @@ def buscar_sgid ():
             StackName=response['StackId'],
         )
         stack_descripcion = cloudformation.describe_stacks(StackName="sgVpn")
-        vpn_sg_id = stack_descripcion["Stacks"][0]['Outputs'][0]['OutputValue']
-        print (vpn_sg_id)
+        return stack_descripcion["Stacks"][0]['Outputs'][0]['OutputValue']
+        # print (vpn_sg_id)
     else:
-        vpn_sg_id = vpn_sg_id['GroupId']
+        return vpn_sg_id['GroupId']
     # vpn_sg_id = [vpn_sg_id]
     print (vpn_sg_id)
 
 #####################################ami id
 #buscar ami id 
-def buscar_amiid (ami_description):
-    global ami_id
+def buscar_amiid ():
+    #global ami_id
     amis = ec2.describe_images(
         Filters=[
             {'Name': 'owner-alias','Values': ['amazon']},
@@ -122,16 +120,15 @@ def buscar_amiid (ami_description):
     )
     amis['Images'].sort(key=lambda x: x['CreationDate'], reverse=True)
     ami_id = amis['Images'][0] if amis['Images'] else None
-    ami_id = ami_id['ImageId']
-    print (ami_id)
-
+    return ami_id['ImageId']
+    # print (ami_id)
 
 
 ###########lanzar stack de ec2
 #buscar si stack esta creado
 #def buscar_stack_id():
     
-def crear_stack ():
+def crear_stack (vpn_sg_id, ami_id, ins_type):
     response = cloudformation.create_stack(
         StackName='ec2vpn',
         TemplateBody=vpn_stack_body,
@@ -148,33 +145,34 @@ def crear_stack ():
     waiter.wait(
         StackName=response['StackId'],
     )
-def crear_vpn ():
-    global vpn_ip
+#     return response['StackId']
+
+
+def buscar_stack ():
     stack_descripcion = cloudformation.describe_stacks()
     stack_vpn = next((st for st in stack_descripcion['Stacks'] if st['StackName'] == "ec2vpn"), None)
-    #condicional si no esta creado 
     if stack_vpn == None:
-        crear_stack ()
+        print("stack no creado")
     else:
-        #eliminado stack
-        eliminar = cloudformation.delete_stack(
+        print("stack ya creado")
+    return stack_vpn
+
+def eliminar_stack ():
+        cloudformation.delete_stack(
             StackName='ec2vpn',
         )
         waiter_delete = cloudformation.get_waiter('stack_delete_complete')
-        stack_descripcion = cloudformation.describe_stacks()
-        stack_vpn = next((st for st in stack_descripcion['Stacks'] if st['StackName'] == "ec2vpn"), None)
+        # stack_descripcion = cloudformation.describe_stacks()
         waiter_delete.wait(
         StackName='ec2vpn',
         )
-        #creando stack
-        crear_stack()
-        
-    stack_descripcion = cloudformation.describe_stacks(StackName="ec2vpn")
-    print (stack_descripcion["Stacks"][0]['Outputs'][0]['OutputValue'])
-    vpn_ip = stack_descripcion["Stacks"][0]['Outputs'][0]['OutputValue']
-    return stack_descripcion["Stacks"][0]['Outputs'][0]['OutputValue']
-            
-#scp -i vpn.pem ec2-user@52.195.152.243:/home/wireguard/config/peer1/peer1.conf .
+#eliminar_stack()
+
+def obtener_ip ():
+    stack = buscar_stack()
+    ip = stack['Outputs'][0]['OutputValue']
+    return ip
+
 def extraer_conf(ip):
     source_path = f'ec2-user@{ip}:/home/wireguard/config/peer1/peer1.conf'
     destination_path = '.'
@@ -186,4 +184,28 @@ def extraer_conf(ip):
         print("Transferencia exitosa")
     except subprocess.CalledProcessError as e:
         print(f"Error en la transferencia: {e}")
+
+
         
+def crear_vpn ():
+    #condicional si no esta creado 
+    vpn_sg_id = buscar_sgid()
+    ami_id = buscar_amiid()
+    ins_type = buscar_tipo_instacia()                     
+    stack_vpn = buscar_stack ()
+    
+    if stack_vpn == None:
+        stack = crear_stack(vpn_sg_id, ami_id, ins_type)
+    else:
+        #eliminado stack
+        eliminar_stack ()
+        #creando stack
+        stack = crear_stack(vpn_sg_id, ami_id, ins_type)
+    return stack
+        
+    stack_descripcion = cloudformation.describe_stacks(StackName="ec2vpn")
+    print (stack_descripcion["Stacks"][0]['Outputs'][0]['OutputValue'])
+    vpn_ip = stack_descripcion["Stacks"][0]['Outputs'][0]['OutputValue']
+    return stack_descripcion["Stacks"][0]['Outputs'][0]['OutputValue']
+            
+#scp -i vpn.pem ec2-user@52.195.152.243:/home/wireguard/config/peer1/peer1.conf .
