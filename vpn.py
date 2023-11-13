@@ -18,7 +18,7 @@ regiones = {"india":"ap-south-1",
 
 ############################################Varibles
 
-actual = "suecia"
+actual = "us"
 instancetype = ['t3.micro','t2.micro']
 keypub = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCxMEo7XjvUVFug45TGA4k3rM5iiil1R35B+gQmNBAoy9ithQITlOtuE93HQNLnqGKnOl83kLKHRaymTNwM6gNusyUIuNuj6hXYtCdygFphBsoPZ3+W2dtRZ3hjpl59MfAbHHkd+2u5RMJXjt9jrhFer/FhyZ6x6S5B4+yIVI4JLCrJ3pnRvifbrisOAWhd4von55ewlBQKelNc6DNNjbL/tSTSQluf48tzcrwz21RItQRxwTASrehL6zrAZRncrSjPF61Shef6ce8ohNIQHmD1zSBWxWIPF2krlRW36nCJrTgxCuNHVzY60bn8diy+ZdeTONzrEK33CmsTW0Pv8Q35"
 ami_description = 'Amazon Linux 2023 AMI 2023.2.20231030.1 x86_64 HVM kernel-6.1'
@@ -26,14 +26,13 @@ region = regiones[actual]
 session = boto3.Session(region_name=region,)
 ec2 = session.client("ec2")
 cloudformation = session.client("cloudformation")
-waiter = cloudformation.get_waiter('stack_create_complete')
-vpn_sg_id = ""
-ins_type = ""  ## tipo de instancia
+# vpn_sg_id = ""
+# ins_type = ""  ## tipo de instancia
+# ami_id = ""
 sg_stack_body = ""
 vpn_stack_body = ""
 sg_stack_path = "sg.yaml"   ### direccion del stack del security group
 vpn_stack_path = "vpnstack.yaml"  ##direccion del stack de ec2
-ami_id = ""
 private_key = 'vpn.pem'   ### direccion de la private key
 
 ###guardar templates en variables
@@ -46,7 +45,13 @@ with open (sg_stack_path, "r") as sg_stack_file:
 with open (vpn_stack_path, "r") as vpn_stack_file:
     vpn_stack_body = vpn_stack_file.read()
 
-
+def seleccionar_region (actual):
+    global ec2
+    global cloudformation
+    region = regiones[actual]
+    session = boto3.Session(region_name=region,)
+    ec2 = session.client("ec2")
+    cloudformation = session.client("cloudformation")
 ##crear key par
 def crearkeypar (keypub):
     keypairs = ec2.describe_key_pairs()
@@ -76,11 +81,11 @@ def buscar_tipo_instacia ():
         return ins_type
     else:
         print (f'los tipos de instancias seleccionado no son freetier para esta cuenta :{instancetype}')
+        return instancetype[0]
 
 ###############################################security group
 ##buscar sg id
 def buscar_sgid ():
-    #global vpn_sg_id
     vpcs = ec2.describe_vpcs(Filters=[{'Name': 'isDefault', 'Values': ['true']}]) #obtener id vpc default
     default_vpc_id = vpcs["Vpcs"][0]["VpcId"]                                     #obtener id vpc default
     sgs = ec2.describe_security_groups(Filters=[{'Name': 'vpc-id', 'Values': [default_vpc_id]}])
@@ -95,6 +100,7 @@ def buscar_sgid ():
             ],
             OnFailure='ROLLBACK',
         )
+        waiter = cloudformation.get_waiter('stack_create_complete')
         waiter.wait(
             StackName=response['StackId'],
         )
@@ -142,6 +148,7 @@ def crear_stack (vpn_sg_id, ami_id, ins_type):
         ],
         OnFailure='ROLLBACK',
     )
+    waiter = cloudformation.get_waiter('stack_create_complete')
     waiter.wait(
         StackName=response['StackId'],
     )
@@ -170,8 +177,12 @@ def eliminar_stack ():
 
 def obtener_ip ():
     stack = buscar_stack()
-    ip = stack['Outputs'][0]['OutputValue']
-    return ip
+    if stack == None:
+        print("no creado")
+        return stack
+    else:
+        ip = stack['Outputs'][0]['OutputValue']
+        return ip
 
 def extraer_conf(ip):
     source_path = f'ec2-user@{ip}:/home/wireguard/config/peer1/peer1.conf'
@@ -184,8 +195,6 @@ def extraer_conf(ip):
         print("Transferencia exitosa")
     except subprocess.CalledProcessError as e:
         print(f"Error en la transferencia: {e}")
-
-
         
 def crear_vpn ():
     #condicional si no esta creado 
@@ -203,9 +212,5 @@ def crear_vpn ():
         stack = crear_stack(vpn_sg_id, ami_id, ins_type)
     return stack
         
-    stack_descripcion = cloudformation.describe_stacks(StackName="ec2vpn")
-    print (stack_descripcion["Stacks"][0]['Outputs'][0]['OutputValue'])
-    vpn_ip = stack_descripcion["Stacks"][0]['Outputs'][0]['OutputValue']
-    return stack_descripcion["Stacks"][0]['Outputs'][0]['OutputValue']
+   
             
-#scp -i vpn.pem ec2-user@52.195.152.243:/home/wireguard/config/peer1/peer1.conf .
