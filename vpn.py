@@ -158,21 +158,18 @@ def crear_stack (vpn_sg_id, ami_id, ins_type):
 def buscar_stack ():
     stack_descripcion = cloudformation.describe_stacks()
     stack_vpn = next((st for st in stack_descripcion['Stacks'] if st['StackName'] == "ec2vpn"), None)
-    if stack_vpn == None:
-        print("stack no creado")
-    else:
-        print("stack ya creado")
+    # if stack_vpn == None:
+    #     print("stack no creado")
+    # else:
+    #     print("stack ya creado")
     return stack_vpn
 
-def eliminar_stack ():
-        cloudformation.delete_stack(
-            StackName='ec2vpn',
-        )
-        waiter_delete = cloudformation.get_waiter('stack_delete_complete')
-        # stack_descripcion = cloudformation.describe_stacks()
-        waiter_delete.wait(
-        StackName='ec2vpn',
-        )
+def eliminar_stack (waiter=True):
+        cloudformation.delete_stack(StackName='ec2vpn',)
+        if waiter:
+            waiter_delete = cloudformation.get_waiter('stack_delete_complete')
+            # stack_descripcion = cloudformation.describe_stacks()
+            waiter_delete.wait(StackName='ec2vpn',)
 #eliminar_stack()
 
 def obtener_ip ():
@@ -212,5 +209,21 @@ def crear_vpn ():
         stack = crear_stack(vpn_sg_id, ami_id, ins_type)
     return stack
         
-   
-            
+#### buscar todas las vpn
+def buscar_todas ():
+    las_regiones = {}
+    for region in regiones:
+        seleccionar_region(region)
+        stack = buscar_stack()
+        las_regiones[region] = stack
+    return las_regiones
+
+def apagar_todas():
+    for region in regiones:
+        seleccionar_region(region)
+        stack = buscar_stack()
+        if stack != None:
+            eliminar_stack(False)
+            print(region)
+
+apagar_todas()
