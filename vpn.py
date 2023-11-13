@@ -45,10 +45,12 @@ with open (sg_stack_path, "r") as sg_stack_file:
 with open (vpn_stack_path, "r") as vpn_stack_file:
     vpn_stack_body = vpn_stack_file.read()
 
-def seleccionar_region (actual):
+def seleccionar_region (reg):
     global ec2
     global cloudformation
-    region = regiones[actual]
+    global actual
+    actual = reg
+    region = regiones[reg]
     session = boto3.Session(region_name=region,)
     ec2 = session.client("ec2")
     cloudformation = session.client("cloudformation")
@@ -181,9 +183,9 @@ def obtener_ip ():
         ip = stack['Outputs'][0]['OutputValue']
         return ip
 
-def extraer_conf(ip):
+def extraer_conf(ip, region=region):
     source_path = f'ec2-user@{ip}:/home/wireguard/config/peer1/peer1.conf'
-    destination_path = '.'
+    destination_path = f'./{actual}.conf'
 
     scp_command = ['scp', '-i',  private_key, '-o', 'StrictHostKeyChecking=no', source_path, destination_path]
 
@@ -226,4 +228,12 @@ def apagar_todas():
             eliminar_stack(False)
             print(region)
 
-apagar_todas()
+# seleccionar_region("us")
+# # crear_vpn()
+# ip=obtener_ip()
+# extraer_conf(ip)
+# seleccionar_region("suecia")
+# # crear_vpn()
+# ip=obtener_ip()
+# extraer_conf(ip)
+# apagar_todas()
