@@ -268,6 +268,7 @@ def regular_conf():
             ip = regiones[region]['Outputs'][0]['OutputValue']
             print(ip)
             extraer_conf(ip)
+
 # regular_conf()
 # seleccionar_region("us")
 #crear_vpn()
