@@ -1,6 +1,8 @@
 import boto3
 import subprocess
-
+import time
+import threading
+import os
 
 regiones = {"india":"ap-south-1",
 "suecia":"eu-north-1",
@@ -172,7 +174,15 @@ def eliminar_stack (waiter=True):
             waiter_delete = cloudformation.get_waiter('stack_delete_complete')
             # stack_descripcion = cloudformation.describe_stacks()
             waiter_delete.wait(StackName='ec2vpn',)
-#eliminar_stack()
+        eliminar_conf()
+
+def eliminar_conf(ruta=actual):
+    direccion = f'./{ruta}.conf'
+    try:
+        os.remove(direccion)
+        print(f"Archivo {direccion} eliminado exitosamente.")
+    except OSError as e:
+        print(f"Error al eliminar el archivo {direccion}: {e}")
 
 def obtener_ip ():
     stack = buscar_stack()
@@ -183,17 +193,38 @@ def obtener_ip ():
         ip = stack['Outputs'][0]['OutputValue']
         return ip
 
-def extraer_conf(ip, region=region):
+def extraer_conf(ip, region=region, intentos_maximos=3, tiempo_espera=60):
     source_path = f'ec2-user@{ip}:/home/wireguard/config/peer1/peer1.conf'
     destination_path = f'./{actual}.conf'
 
     scp_command = ['scp', '-i',  private_key, '-o', 'StrictHostKeyChecking=no', source_path, destination_path]
+    def transferencia():
+        intentos = 0
+        while intentos < intentos_maximos:
+            try:
+                subprocess.run(scp_command, check=True)
+                print("Transferencia exitosa")
+                break  # Sal del bucle si la transferencia es exitosa
+            except subprocess.CalledProcessError as e:
+                print(f"Error en la transferencia: {e}")
+                intentos += 1
+                if intentos < intentos_maximos:
+                    print(f"Reintentando en {tiempo_espera} segundos...")
+                    time.sleep(tiempo_espera)
+        
+        if intentos == intentos_maximos:
+            print(f"Se agotaron los intentos. La transferencia no fue exitosa.")
 
-    try:
-        subprocess.run(scp_command, check=True)
-        print("Transferencia exitosa")
-    except subprocess.CalledProcessError as e:
-        print(f"Error en la transferencia: {e}")
+    # Crear un hilo para ejecutar la función en segundo plano
+    hilo = threading.Thread(target=transferencia)
+    
+    # Iniciar el hilo
+    hilo.start()
+    # try:
+    #     subprocess.run(scp_command, check=True)
+    #     print("Transferencia exitosa")
+    # except subprocess.CalledProcessError as e:
+    #     print(f"Error en la transferencia: {e}")
         
 def crear_vpn ():
     #condicional si no esta creado 
@@ -228,12 +259,25 @@ def apagar_todas():
             eliminar_stack(False)
             print(region)
 
+def regular_conf():
+    regiones = buscar_todas()
+    for region in regiones:
+        if regiones[region] == None:
+            eliminar_conf(region)
+        else:
+            ip = regiones[region]['Outputs'][0]['OutputValue']
+            print(ip)
+            extraer_conf(ip)
+# regular_conf()
 # seleccionar_region("us")
-# # crear_vpn()
+#crear_vpn()
 # ip=obtener_ip()
 # extraer_conf(ip)
 # seleccionar_region("suecia")
-# # crear_vpn()
+# crear_vpn()
 # ip=obtener_ip()
 # extraer_conf(ip)
 # apagar_todas()
+# eliminar_conf("suecia")
+# todas = buscar_todas()
+# print(todas)
