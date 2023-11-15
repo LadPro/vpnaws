@@ -19,23 +19,23 @@ regiones = {"india":"ap-south-1",
 "us":"us-east-1",}
 
 ############################################Varibles
-
-actual = "us"
+script_dir = os.path.dirname(__file__)
+# actual = "us"
 instancetype = ['t3.micro','t2.micro']
 keypub = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCxMEo7XjvUVFug45TGA4k3rM5iiil1R35B+gQmNBAoy9ithQITlOtuE93HQNLnqGKnOl83kLKHRaymTNwM6gNusyUIuNuj6hXYtCdygFphBsoPZ3+W2dtRZ3hjpl59MfAbHHkd+2u5RMJXjt9jrhFer/FhyZ6x6S5B4+yIVI4JLCrJ3pnRvifbrisOAWhd4von55ewlBQKelNc6DNNjbL/tSTSQluf48tzcrwz21RItQRxwTASrehL6zrAZRncrSjPF61Shef6ce8ohNIQHmD1zSBWxWIPF2krlRW36nCJrTgxCuNHVzY60bn8diy+ZdeTONzrEK33CmsTW0Pv8Q35"
 ami_description = 'Amazon Linux 2023 AMI 2023.2.20231030.1 x86_64 HVM kernel-6.1'
-region = regiones[actual]
-session = boto3.Session(region_name=region,)
-ec2 = session.client("ec2")
-cloudformation = session.client("cloudformation")
+# region = regiones[actual]
+# session = boto3.Session(region_name=region,)
+# ec2 = session.client("ec2")
+# cloudformation = session.client("cloudformation")
 # vpn_sg_id = ""
 # ins_type = ""  ## tipo de instancia
 # ami_id = ""
 sg_stack_body = ""
 vpn_stack_body = ""
-sg_stack_path = "sg.yaml"   ### direccion del stack del security group
-vpn_stack_path = "vpnstack.yaml"  ##direccion del stack de ec2
-private_key = 'vpn.pem'   ### direccion de la private key
+sg_stack_path = f"{script_dir}/sg.yaml"   ### direccion del stack del security group
+vpn_stack_path = f"{script_dir}/vpnstack.yaml"  ##direccion del stack de ec2
+private_key = f'{script_dir}/vpn.pem'   ### direccion de la private key
 
 ###guardar templates en variables
 # def templates (sg_stack_path, vpn_stack_path):
@@ -48,17 +48,19 @@ with open (vpn_stack_path, "r") as vpn_stack_file:
     vpn_stack_body = vpn_stack_file.read()
 
 def seleccionar_region (reg):
-    global ec2
-    global cloudformation
-    global actual
+    # global ec2
+    # global cloudformation
+    # global actual
     actual = reg
     region = regiones[reg]
     session = boto3.Session(region_name=region,)
     ec2 = session.client("ec2")
     cloudformation = session.client("cloudformation")
+    return {"region":actual, "ec2":ec2, "cloudformation":cloudformation}
 ##crear key par
-def crearkeypar (keypub):
-    keypairs = ec2.describe_key_pairs()
+def crearkeypar (keypub,reg):
+    client = seleccionar_region (reg)
+    keypairs = client['ec2'].describe_key_pairs()
     keypar = next((key for key in keypairs['KeyPairs'] if key['KeyName']=='vpn'),None)
     # print(keypar)
     if keypar is None:
